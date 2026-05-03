@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>📋 Плановый бюджет</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            margin: 0;
+            padding: 16px;
+            color: #1e293b;
+        }
+        
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 0 0 6px 0;
+            color: #1e293b;
+        }
+        
+        .subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #1e293b;
+        }
+        
+        .collapse-btn {
+            background: #f1f5f9;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 30px;
+            cursor: pointer;
+            color: #475569;
+            transition: all 0.2s;
+        }
+        
+        .collapse-btn:active {
+            background: #e2e8f0;
+            transform: scale(0.95);
+        }
+        
+        .plan-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .plan-table th, .plan-table td {
+            padding: 12px 6px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .plan-table th {
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            background: #f8fafc;
+        }
+        
+        .category-name {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 14px;
+        }
+        
+        .plan-amount {
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .edit-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 30px;
+            color: #94a3b8;
+            transition: all 0.2s;
+        }
+        
+        .edit-btn:active {
+            background: #f1f5f9;
+            color: #3b82f6;
+        }
+        
+        .actual-paid {
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .status-loading {
+            color: #f59e0b;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 12px;
+        }
+        
+        .status-closed {
+            color: #10b981;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        
+        .loading-icon {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f59e0b;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .progress-bar-bg {
+            background: #e2e8f0;
+            border-radius: 20px;
+            height: 6px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .progress-bar-fill {
+            background: linear-gradient(90deg, #10b981, #34d399);
+            height: 6px;
+            border-radius: 20px;
+            transition: width 0.3s ease;
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #334155;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            background: white;
+            font-family: inherit;
+            transition: all 0.2s;
+            color: #1e293b;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        
+        .row-2 {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .row-2 .input-group {
+            flex: 1;
+        }
+        
+        button {
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-family: inherit;
+        }
+        
+        button:active {
+            transform: scale(0.97);
+        }
+        
+        .btn-add {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 40px;
+            width: 100%;
+            margin-top: 8px;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+        }
+        
+        .btn-excel {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: 40px;
+            width: 100%;
+            margin-top: 12px;
+            box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+        }
+        
+        .btn-chart {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: 40px;
+            width: 100%;
+            margin-top: 12px;
+            box-shadow: 0 4px 12px rgba(139,92,246,0.3);
+        }
+        
+        .total-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 28px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(102,126,234,0.3);
+        }
+        
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+        
+        .total-row:last-child {
+            margin-bottom: 0;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 20px;
+            font-weight: 800;
+        }
+        
+        .total-label {
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        
+        .transactions-list {
+            max-height: 320px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s;
+        }
+        
+        .transaction-item:active {
+            background: #f8fafc;
+        }
+        
+        .transaction-info {
+            flex: 1;
+        }
+        
+        .transaction-category {
+            font-weight: 700;
+            font-size: 14px;
+            color: #1e293b;
+        }
+        
+        .transaction-date {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        
+        .transaction-amount {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        
+        .delete-transaction {
+            background: none;
+            font-size: 18px;
+            color: #cbd5e1;
+            margin-left: 12px;
+            padding: 8px;
+            border-radius: 30px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .delete-transaction:active {
+            background: #f1f5f9;
+            color: #ef4444;
+        }
+        
+        .clear-btn {
+            background: none;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            border-radius: 40px;
+            width: 100%;
+            margin-top: 16px;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .clear-btn:active {
+            background: #f1f5f9;
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        
+        .empty-text {
+            text-align: center;
+            padding: 30px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .modal-container {
+            background: white;
+            border-radius: 32px;
+            margin: 20px;
+            padding: 20px;
+            position: relative;
+            min-height: 70vh;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 0;
+            background: white;
+            padding-bottom: 10px;
+            z-index: 10;
+        }
+        
+        .modal-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        
+        .close-modal {
+            background: #f1f5f9;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748b;
+            width: 42px;
+            height: 42px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .close-modal:active {
+            background: #e2e8f0;
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        
+        .history-table th, .history-table td {
+            padding: 10px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+        
+        .history-table th {
+            background: #f8fafc;
+            font-weight: 700;
+            color: #475569;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 14px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: 800;
+        }
+        
+        canvas {
+            max-height: 250px;
+            margin: 20px 0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 12px;
+            }
+            .plan-table th, .plan-table td {
+                padding: 10px 4px;
+                font-size: 12px;
+            }
+            .category-name {
+                font-size: 12px;
+            }
+            .status-loading, .status-closed {
+                font-size: 10px;
+            }
+            .section-title {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="title">📋 Плановый бюджет</div>
+        <div class="subtitle">✏️ Нажмите на карандаш, чтобы изменить план</div>
+    </div>
+    
+    <!-- Основные расходы -->
+    <div class="card">
+        <div class="section-header">
+            <div class="section-title">🎯 Основные расходы</div>
+        </div>
+        <table class="plan-table" id="mainTable">
+            <thead>
+                <tr><th>📂 Категория</th><th>🎯 План</th><th>💰 Потрачено</th><th>📊 Статус</th><th></th></tr>
+            </thead>
+            <tbody id="mainBody"></tbody>
+        </table>
+    </div>
+    
+    <!-- Дополнительные расходы (сворачиваемые) -->
+    <div class="card">
+        <div class="section-header">
+            <div class="section-title">✨ Дополнительные расходы <span style="font-size:12px; color:#94a3b8;">(план 100₽)</span></div>
+            <button class="collapse-btn" id="collapseBtn">▼ Свернуть</button>
+        </div>
+        <div id="extraContainer">
+            <table class="plan-table" id="extraTable">
+                <thead><tr><th>📂 Категория</th><th>🎯 План</th><th>💰 Потрачено</th><th>📊 Статус</th><th></th></tr></thead>
+                <tbody id="extraBody"></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Итоговая карточка -->
+    <div class="total-card">
+        <div class="total-row"><span class="total-label">💰 Всего доходов</span><span id="totalInc">0 ₽</span></div>
+        <div class="total-row"><span class="total-label">📉 Всего расходов</span><span id="totalExp">0 ₽</span></div>
+        <div class="total-row"><span class="total-label">💎 Остаток</span><span id="balance">0 ₽</span></div>
+    </div>
+    
+    <!-- Форма добавления -->
+    <div class="card">
+        <div style="font-weight:700; margin-bottom:16px;">➕ Добавить операцию</div>
+        <div class="row-2">
+            <div class="input-group"><label>📅 Дата</label><input type="date" id="date"></div>
+            <div class="input-group"><label>💰 Сумма</label><input type="number" id="amount" placeholder="0" step="1"></div>
+        </div>
+        <div class="input-group">
+            <label>📂 Категория</label>
+            <select id="catSelect">
+                <optgroup label="💰 Доходы"><option>💰 Зарплата</option><option>➕ Дополнительный доход</option></optgroup>
+                <optgroup label="📉 Основные расходы"><option>🍎 Еда</option><option>📄 Налог</option><option>🚌 Интернет и проезд</option><option>💡 ЖКХ</option><option>📦 Прочие расходы</option><option>🏦 Вклад</option></optgroup>
+                <optgroup label="✨ Дополнительные"><option>☕ Кафе и обеды</option><option>🐩 Содержание королевского пуделя</option><option>📦 Маркетплейсы</option><option>💄 Красота</option><option>💊 Здоровье</option></optgroup>
+            </select>
+        </div>
+        <div class="row-2">
+            <div class="input-group"><label>🟢 Тип</label><select id="type"><option value="income">Доход (+)</option><option value="expense">Расход (-)</option></select></div>
+            <div class="input-group"><label>📝 Коммент</label><input type="text" id="comment" placeholder="..."></div>
+        </div>
+        <button class="btn-add" id="addBtn">+ Добавить запись</button>
+        <button class="btn-excel" id="excelBtn">📥 Скачать Excel</button>
+        <button class="btn-chart" id="chartBtn">📊 График динамики</button>
+    </div>
+    
+    <!-- История -->
+    <div class="card">
+        <div class="section-header"><div class="section-title">📜 История операций</div></div>
+        <div id="historyList" class="transactions-list"><div class="empty-text">📭 Нет операций. Добавьте первую!</div></div>
+        <button class="clear-btn" id="clearBtn">🗑️ Очистить всю историю</button>
+    </div>
+</div>
+
+<!-- Модальное окно для графика -->
+<div id="modal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <span class="modal-title">📊 График доходов и расходов</span>
+            <button class="close-modal" id="closeModal">✕</button>
+        </div>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+    // ==================== ДАННЫЕ ====================
+    let mainPlans = [
+        { name: "🍎 Еда", plan: 25000 }, { name: "📄 Налог", plan: 2500 }, 
+        { name: "🚌 Интернет и проезд", plan: 2500 }, { name: "💡 ЖКХ", plan: 10000 },
+        { name: "📦 Прочие расходы", plan: 8000 }, { name: "🏦 Вклад", plan: 35000 }
+    ];
+    let extraPlans = [
+        { name: "☕ Кафе и обеды", plan: 100 }, { name: "🐩 Содержание королевского пуделя", plan: 100 },
+        { name: "📦 Маркетплейсы", plan: 100 }, { name: "💄 Красота", plan: 100 }, 
+        { name: "💊 Здоровье", plan: 100 }
+    ];
+    let transactions = [];
+    let extraCollapsed = false;
+    let chart = null;
+
+    // ==================== ЗАГРУЗКА / СОХРАНЕНИЕ ====================
+    function loadAll() {
+        let m = localStorage.getItem('mainPlans'); if (m) mainPlans = JSON.parse(m);
+        let e = localStorage.getItem('extraPlans'); if (e) extraPlans = JSON.parse(e);
+        let t = localStorage.getItem('transactions'); if (t) transactions = JSON.parse(t);
+        else {
+            let today = new Date().toISOString().slice(0,10);
+            transactions = [
+                { id: Date.now(), date: today, amount: 75000, category: "💰 Зарплата", type: "income", comment: "" },
+                { id: Date.now()+1, date: today, amount: 5000, category: "🍎 Еда", type: "expense", comment: "Продукты" },
+                { id: Date.now()+2, date: today, amount: 2500, category: "📄 Налог", type: "expense", comment: "" },
+                { id: Date.now()+3, date: today, amount: 3000, category: "☕ Кафе и обеды", type: "expense", comment: "Обед" }
+            ];
+        }
+        saveAll();
+        render();
+    }
+    function saveAll() {
+        localStorage.setItem('mainPlans', JSON.stringify(mainPlans));
+        localStorage.setItem('extraPlans', JSON.stringify(extraPlans));
+        localStorage.setItem('transactions', JSON.stringify(transactions));
+    }
+
+    // ==================== ПОМОЩНИКИ ====================
+    function getSpent(cat) {
+        return transactions.filter(t => t.type === 'expense' && t.category === cat).reduce((s, t) => s + t.amount, 0);
+    }
+    function getTotalIncome() { return transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0); }
+    function getTotalExpense() { return transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0); }
+    function getToday() { return new Date().toISOString().slice(0,10); }
+
+    // ==================== РЕДАКТИРОВАНИЕ ====================
+    function editPlan(name, isMain) {
+        let arr = isMain ? mainPlans : extraPlans;
+        let item = arr.find(i => i.name === name);
+        if (!item) return;
+        let newVal = prompt(`✏️ Изменить план для "${name}":`, item.plan);
+        if (newVal && !isNaN(parseFloat(newVal)) && parseFloat(newVal) > 0) {
+            item.plan = parseFloat(newVal);
+            saveAll();
+            render();
+        } else if (newVal) alert("❌ Введите число больше 0");
+    }
+
+    // ==================== ОТРИСОВКА ТАБЛИЦ ====================
+    function renderTable(plans, isMain, tbodyId) {
+        let html = '';
+        for (let p of plans) {
+            let spent = getSpent(p.name);
+            let percent = Math.min(100, (spent / p.plan) * 100);
+            let closed = spent >= p.plan;
+            let statusHtml = closed ? '<span class="status-closed">✅ Закрыто</span>' : 
+                `<span class="status-loading"><span class="loading-icon"></span> Осталось ${(p.plan - spent).toLocaleString()} ₽</span>`;
+            html += `<tr>
+                <td class="category-name">${p.name}</td>
+                <td class="plan-amount">${p.plan.toLocaleString()} ₽</td>
+                <td class="actual-paid" style="color:${closed?'#10b981':'#f59e0b'}">${spent.toLocaleString()} ₽</td>
+                <td class="status">${statusHtml}</td>
+                <td><button class="edit-btn" onclick="editPlan('${p.name}', ${isMain})">✏️</button></td>
+            </tr>
+            <tr style="background: none;"><td colspan="5" style="padding-top:0"><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${percent}%"></div></div></td></tr>
+            `;
+        }
+        document.getElementById(tbodyId).innerHTML = html;
+    }
+
+    function renderHistory() {
+        let container = document.getElementById('historyList');
+        if (!transactions.length) { container.innerHTML = '<div class="empty-text">📭 Нет операций. Добавьте первую!</div>'; return; }
+        let html = '';
+        [...transactions].reverse().forEach(t => {
+            let sign = t.type === 'income' ? '+' : '−';
+            let color = t.type === 'income' ? '#10b981' : '#ef4444';
+            html += `<div class="transaction-item">
+                <div class="transaction-info">
+                    <div class="transaction-category">${t.category}</div>
+                    <div class="transaction-date">📅 ${t.date} ${t.comment ? '• 💬 ' + t.comment : ''}</div>
+                </div>
+                <div><span class="transaction-amount" style="color:${color}">${sign} ${t.amount.toLocaleString()} ₽</span>
+                <button class="delete-transaction" data-id="${t.id}">🗑️</button></div>
+            </div>`;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.delete-transaction').forEach(btn => {
+            btn.onclick = () => { transactions = transactions.filter(t => t.id != btn.dataset.id); saveAll(); render(); };
+        });
+    }
+
+    function renderTotals() {
+        let income = getTotalIncome(), expense = getTotalExpense(), bal = income - expense;
+        document.getElementById('totalInc').innerHTML = income.toLocaleString() + ' ₽';
+        document.getElementById('totalExp').innerHTML = expense.toLocaleString() + ' ₽';
+        let balEl = document.getElementById('balance');
+        balEl.innerHTML = bal.toLocaleString() + ' ₽';
+        balEl.style.color = bal >= 0 ? '#c7f9cc' : '#fecaca';
+    }
+
+    function render() {
+        renderTable(mainPlans, true, 'mainBody');
+        renderTable(extraPlans, false, 'extraBody');
+        renderHistory();
+        renderTotals();
+    }
+
+    // ==================== ДОБАВЛЕНИЕ ====================
+    function addTransaction() {
+        let date = document.getElementById('date').value || getToday();
+        let amount = parseFloat(document.getElementById('amount').value);
+        let category = document.getElementById('catSelect').value;
+        let type = document.getElementById('type').value;
+        let comment = document.getElementById('comment').value;
+        if (isNaN(amount) || amount <= 0) { alert("❌ Введите сумму"); return; }
+        if (category.includes("Зарплата") || category.includes("Дополнительный доход")) type = "income";
+        else type = "expense";
+        transactions.push({ id: Date.now(), date, amount, category, type, comment });
+        saveAll();
+        render();
+        document.getElementById('amount').value = '';
+        document.getElementById('comment').value = '';
+    }
+
+    // ==================== EXCEL ====================
+    function exportExcel() {
+        let wb = XLSX.utils.book_new();
+        let mainData = mainPlans.map(p => ({ "📂 Категория": p.name, "🎯 План": p.plan, "💰 Потрачено": getSpent(p.name), "⏳ Остаток": Math.max(0, p.plan - getSpent(p.name)) }));
+        let extraData = extraPlans.map(p => ({ "📂 Категория": p.name, "🎯 План": p.plan, "💰 Потрачено": getSpent(p.name), "⏳ Остаток": Math.max(0, p.plan - getSpent(p.name)) }));
+        let incData = transactions.filter(t => t.type === 'income').map(t => ({ "📅 Дата": t.date, "📂 Категория": t.category, "💰 Сумма": t.amount }));
+        let expData = transactions.filter(t => t.type === 'expense').map(t => ({ "📅 Дата": t.date, "📂 Категория": t.category, "💰 Сумма": t.amount }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mainData), "📊 Основные");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(extraData), "✨ Дополнительные");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(incData), "📈 Доходы");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expData), "📉 Расходы");
+        XLSX.writeFile(wb, `budget_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    // ==================== ГРАФИК ====================
+    function showGraph() {
+        let modal = document.getElementById('modal');
+        let modalBody = document.getElementById('modalBody');
+        let days = {};
+        transactions.forEach(t => {
+            if (!days[t.date]) days[t.date] = { income: 0, expense: 0 };
+            if (t.type === 'income') days[t.date].income += t.amount;
+            else days[t.date].expense += t.amount;
+        });
+        let labels = Object.keys(days).sort();
+        let incData = labels.map(l => days[l].income);
+        let expData = labels.map(l => days[l].expense);
+        
+        let statsHtml = `<div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" style="color:#10b981">${getTotalIncome().toLocaleString()} ₽</div><div>💰 Всего доходов</div></div>
+            <div class="stat-card"><div class="stat-value" style="color:#ef4444">${getTotalExpense().toLocaleString()} ₽</div><div>📉 Всего расходов</div></div>
+        </div>`;
+        
+        modalBody.innerHTML = statsHtml + '<canvas id="dynChart" style="max-height:250px"></canvas>';
+        modal.style.display = 'block';
+        setTimeout(() => {
+            let ctx = document.getElementById('dynChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets: [
+                    { label: '💰 Доходы', data: incData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3 },
+                    { label: '📉 Расходы', data: expData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.3 }
+                ]},
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+            });
+        }, 50);
+    }
+
+    // ==================== СВОРАЧИВАНИЕ ====================
+    function toggleExtra() {
+        let container = document.getElementById('extraContainer');
+        let btn = document.getElementById('collapseBtn');
+        extraCollapsed = !extraCollapsed;
+        container.classList.toggle('hidden', extraCollapsed);
+        btn.innerHTML = extraCollapsed ? '▶ Развернуть' : '▼ Свернуть';
+    }
+
+    // ==================== ОЧИСТКА ====================
+    function clearAll() { if (confirm("❓ Удалить все операции? Категории и планы останутся.")) { transactions = []; saveAll(); render(); } }
+
+    // ==================== ЗАПУСК ====================
+    document.getElementById('date').value = getToday();
+    document.getElementById('addBtn').onclick = addTransaction;
+    document.getElementById('clearBtn').onclick = clearAll;
+    document.getElementById('excelBtn').onclick = exportExcel;
+    document.getElementById('chartBtn').onclick = showGraph;
+    document.getElementById('collapseBtn').onclick = toggleExtra;
+    document.getElementById('closeModal').onclick = () => { document.getElementById('modal').style.display = 'none'; if(chart) chart.destroy(); };
+    window.onclick = (e) => { if(e.target === document.getElementById('modal')) document.getElementById('modal').style.display = 'none'; };
+    window.editPlan = editPlan;
+    loadAll();
+</script>
+</body>
+</html>
